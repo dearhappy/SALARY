@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Salary Calculator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* Custom print styles to ensure the PDF looks exactly like the preview */
+        .print-container {
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+
+    <div class="max-w-2xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800"><i class="fa-solid fa-calculator text-blue-600 mr-2"></i>Payroll Manager</h1>
+            <p class="text-gray-500 mt-2">Calculate Net Pay & Generate Slip</p>
+        </div>
+
+        <!-- Input Form -->
+        <div class="bg-white rounded-xl shadow-lg p-6 border-t-4 border-blue-600">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Employee Details & Attendance</h2>
+            
+            <form id="salaryForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Employee Info -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                        <input type="text" id="empName" placeholder="e.g. John Doe" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                        <input type="text" id="designation" placeholder="e.g. Supervisor" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+
+                    <!-- Attendance -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Working Days</label>
+                        <input type="number" id="workingDays" placeholder="Days worked" min="0" max="31" step="0.5" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        <p class="text-xs text-gray-400 mt-1">Standard month: 26 days</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Overtime (Hours)</label>
+                        <input type="number" id="overtimeHours" placeholder="Total OT Hours" min="0" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value="0">
+                    </div>
+                </div>
+
+                <!-- Base Salary Structure (Configurable) -->
+                <div class="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Fixed Monthly Structure (Based on 26 Days)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Fixed Gross Salary</label>
+                            <input type="number" id="baseGross" value="26000" class="w-full px-3 py-2 bg-white border rounded text-sm font-semibold text-gray-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Fixed PF (Employer)</label>
+                            <input type="number" id="basePF" value="1800" class="w-full px-3 py-2 bg-white border rounded text-sm font-semibold text-gray-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Fixed Prof. Tax</label>
+                            <input type="number" id="baseTax" value="200" class="w-full px-3 py-2 bg-white border rounded text-sm font-semibold text-gray-700">
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Overtime Rate (Per Hour)</label>
+                         <!-- Auto-calculated logic visual guide or manual override -->
+                        <div class="flex items-center space-x-2">
+                             <input type="number" id="otRate" value="125" class="w-1/2 px-3 py-2 bg-white border rounded text-sm font-semibold text-gray-700">
+                             <span class="text-xs text-gray-400">Default or Custom Rate</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" onclick="calculateSalary()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-4 shadow-md flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> Calculate Net Pay
+                </button>
+            </form>
+        </div>
+
+        <!-- Result / Slip Preview -->
+        <div id="resultSection" class="hidden">
+            
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Salary Slip Preview</h2>
+                <button onclick="downloadPDF()" class="bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-4 rounded shadow flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Download PDF
+                </button>
+            </div>
+
+            <!-- The Slip Element to be printed -->
+            <div id="salarySlip" class="bg-white p-8 rounded-none shadow-xl print-container mx-auto max-w-full">
+                
+                <!-- Slip Header -->
+                <div class="border-b-2 border-gray-800 pb-4 mb-6 flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">COMPANY NAME LTD.</h1>
+                        <p class="text-sm text-gray-500">Salary Estimation Slip</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-500">Date: <span id="slipDate"></span></p>
+                        <p class="text-sm font-bold text-blue-600">CONFIDENTIAL</p>
+                    </div>
+                </div>
+
+                <!-- Employee Details Grid -->
+                <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6 bg-gray-50 p-4 rounded border border-gray-100">
+                    <div><span class="text-gray-500">Employee Name:</span> <br><span class="font-bold text-gray-800 text-lg" id="resName">-</span></div>
+                    <div><span class="text-gray-500">Designation:</span> <br><span class="font-bold text-gray-800" id="resDesig">-</span></div>
+                    <div class="mt-2"><span class="text-gray-500">Working Days:</span> <span class="font-bold text-gray-800" id="resDays">0</span></div>
+                    <div class="mt-2"><span class="text-gray-500">Overtime Hours:</span> <span class="font-bold text-gray-800" id="resOtHours">0</span></div>
+                </div>
+
+                <!-- Salary Table -->
+                <table class="w-full text-sm mb-6 border-collapse">
+                    <thead>
+                        <tr class="bg-gray-800 text-white">
+                            <th class="p-2 text-left w-1/2">Description</th>
+                            <th class="p-2 text-right w-1/2">Amount (Currency)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 border border-gray-200">
+                        <!-- Earnings -->
+                        <tr>
+                            <td class="p-2 text-gray-600 font-medium">Earned Gross Salary <span class="text-xs text-gray-400 font-normal">(Prorated)</span></td>
+                            <td class="p-2 text-right font-bold text-gray-800" id="resEarnedGross">0.00</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2 text-gray-600 font-medium">Overtime Amount</td>
+                            <td class="p-2 text-right font-bold text-green-600" id="resOtAmount">0.00</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="p-2 font-bold text-gray-800">Total Earnings (A)</td>
+                            <td class="p-2 text-right font-bold text-gray-900" id="resTotalEarnings">0.00</td>
+                        </tr>
+
+                        <!-- Deductions -->
+                        <tr>
+                            <td class="p-2 text-gray-600 font-medium pt-4">Provident Fund (Employer)</td>
+                            <td class="p-2 text-right font-bold text-red-500 pt-4" id="resPf">0.00</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2 text-gray-600 font-medium">Professional Tax</td>
+                            <td class="p-2 text-right font-bold text-red-500" id="resTax">0.00</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="p-2 font-bold text-gray-800">Total Deductions (B)</td>
+                            <td class="p-2 text-right font-bold text-gray-900" id="resTotalDeductions">0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Net Pay -->
+                <div class="bg-blue-600 text-white p-4 rounded flex justify-between items-center shadow-md">
+                    <span class="text-lg font-medium">NET PAYABLE (A - B)</span>
+                    <span class="text-2xl font-bold" id="resNetPay">0.00</span>
+                </div>
+
+                <div class="mt-8 text-center text-xs text-gray-400">
+                    <p>This is a computer-generated estimate based on 26 working days calculation.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set Today's Date
+        document.getElementById('slipDate').textContent = new Date().toLocaleDateString();
+
+        const formatCurrency = (num) => {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2
+            }).format(num);
+        };
+
+        function calculateSalary() {
+            // 1. Get Inputs
+            const name = document.getElementById('empName').value;
+            const designation = document.getElementById('designation').value;
+            const workingDays = parseFloat(document.getElementById('workingDays').value) || 0;
+            const otHours = parseFloat(document.getElementById('overtimeHours').value) || 0;
+            
+            // 2. Get Base Configuration (Standard 26 Days)
+            const baseGross = parseFloat(document.getElementById('baseGross').value) || 0;
+            const basePF = parseFloat(document.getElementById('basePF').value) || 0;
+            const baseTax = parseFloat(document.getElementById('baseTax').value) || 0;
+            const otRate = parseFloat(document.getElementById('otRate').value) || 0;
+
+            if(!name || !designation) {
+                alert("Please enter Name and Designation.");
+                return;
+            }
+
+            // 3. Calculation Logic
+            // Logic: Value / 26 * Working Days
+            const earnedGross = (baseGross / 26) * workingDays;
+            const earnedPF = (basePF / 26) * workingDays;
+            const earnedTax = (baseTax / 26) * workingDays;
+            
+            const otAmount = otHours * otRate;
+
+            const totalEarnings = earnedGross + otAmount;
+            const totalDeductions = earnedPF + earnedTax;
+            const netPay = totalEarnings - totalDeductions;
+
+            // 4. Update UI
+            document.getElementById('resName').textContent = name;
+            document.getElementById('resDesig').textContent = designation;
+            document.getElementById('resDays').textContent = workingDays;
+            document.getElementById('resOtHours').textContent = otHours;
+
+            document.getElementById('resEarnedGross').textContent = formatCurrency(earnedGross);
+            document.getElementById('resOtAmount').textContent = formatCurrency(otAmount);
+            document.getElementById('resTotalEarnings').textContent = formatCurrency(totalEarnings);
+
+            document.getElementById('resPf').textContent = formatCurrency(earnedPF);
+            document.getElementById('resTax').textContent = formatCurrency(earnedTax);
+            document.getElementById('resTotalDeductions').textContent = formatCurrency(totalDeductions);
+
+            document.getElementById('resNetPay').textContent = formatCurrency(netPay);
+
+            // 5. Show Result
+            document.getElementById('resultSection').classList.remove('hidden');
+            
+            // Scroll to result
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('salarySlip');
+            const name = document.getElementById('empName').value || 'Employee';
+            
+            const opt = {
+                margin:       0.5,
+                filename:     `Salary_Slip_${name}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // New Promise-based usage:
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
